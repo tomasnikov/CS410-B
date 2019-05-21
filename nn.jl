@@ -12,23 +12,41 @@ function modelNN(input, w, b, c, g, expOutput, layerSizes)
 
   numLayers = size(layerSizes,1)
 
-  # Initialize z decision variable, z == 0 or z == 1
-  @variable(m, z[k=1:numLayers, j=1:layerSizes[k]], Bin)
-  # Initialize x decision variable, x >= 0. x[k,j] is x^k_j
-  @variable(m, x[k=1:numLayers, j=1:layerSizes[k]] >= 0)
+  # Initialize x decision variable, x >= 0. x[k,j] is x^k_j. Arbitrary upper bound of 10000
+  @variable(m, 0 <= x[k=1:numLayers, j=1:layerSizes[k]] <= 10000)
   # Initialize s decision variable, s >= 0. s[k,j] is s^k_j
   @variable(m, s[k=2:numLayers, j=1:layerSizes[k]] >= 0)
+  # Initialize binary z decision variable
+  @variable(m, z[k=2:numLayers, j=1:layerSizes[k]], Bin)
 
   # First x layer must be equal to the input
   @constraint(m, [x[1,j] for j in 1:layerSizes[1]] .== input)
 
   lastLayer = [x[1,j] for j in 1:layerSizes[1]]
   for k in 2:numLayers
-    # x_j and s_j values for layer k, j in 1:n_k
+    # x_j, s_j and z_j are values for layer k, j in 1:n_k
     layerX = [x[k,j] for j in 1:layerSizes[k]]
     layerS = [s[k,j] for j in 1:layerSizes[k]]
+    layerZ = [z[k,j] for j in 1:layerSizes[k]]
+
+    weights = w[string(k-1)]
+    biases = b[string(k-1)]
+
     # ReLU formulation, w^{k-1}^T * x^{k-1} + b^{k-1} = x^k - s^k
-    @constraint(m, layerX - layerS .== transpose(w[string(k-1)]) * lastLayer + b[string(k-1)])
+    @constraint(m, transpose(weights) * lastLayer + biases .== layerX - layerS)
+    
+    # Get upper and lower bounds for x values
+    lb = [lower_bound(x[k-1,j]) for j in 1:layerSizes[k-1]]
+    ub = [upper_bound(x[k-1,j]) for j in 1:layerSizes[k-1]]
+
+    # Use bounds to calculate M_- <= w^{k-1}^T * lb(x^{k-1} + b^{k-1} <= M_+
+    negM = transpose(weights) * lb + biases
+    posM = transpose(weights) * ub + biases
+
+    # Constrain z such that x <= M_+ * (1 - z) and s <= M_- * z
+    @constraint(m, layerX .<= posM .* (1 .- layerZ))
+    @constraint(m, layerS .<= -negM .* layerZ)
+
     lastLayer = layerX
   end
   # Constrain output to be equal to expected output
@@ -77,6 +95,7 @@ function printVars(m,x,s,z,w,b,c,g,output,layerSizes)
 
   printDecLayers("X", x, 1:numLayers, layerSizes)
   printDecLayers("S", s, 2:numLayers, layerSizes)
+  printDecLayers("Z", z, 2:numLayers, layerSizes)
 
   printLayers("Weights", w, 1:numLayers-1, layerSizes)
   printLayers("Biases", b, 1:numLayers-1, layerSizes)
@@ -121,7 +140,7 @@ end
 function main()
   # Read JSON file
   file = ARGS[1]
- 
+
   # Cost functions ???
   c = [1; 1]
   g = [0; 0]
