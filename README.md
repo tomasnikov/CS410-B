@@ -5,5 +5,5 @@
 ### How to run:
 
 ```
-julia nn.jl
+julia nn.jl datasets/2-2-1.json
 ```
