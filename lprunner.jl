@@ -11,5 +11,8 @@ function loadLP(filename, solver=CplexSolver())
     return model
 end
 
-lp = loadLP("fichetti_data/dnn1_1sec/dnn1_1sec_0.lp")
+lp = loadLP("fichetti_data/dnn1_1sec/dnn1_1sec_0.lp")#, GurobiSolver())
+
 MPB.optimize!(lp)
+println("Objective value found $(MPB.getobjval(lp))")
+println("Objective bound $(MPB.getobjbound(lp))")
