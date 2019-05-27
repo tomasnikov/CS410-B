@@ -6,7 +6,10 @@ using DelimitedFiles
 
 import JSON
 
-function modelNN(input, w, b, c, g, expOutput, layerSizes)
+"""
+Add constraints for neural network, then optimize.
+"""
+function modelNN(input, w, b, c, g, label, layerSizes)
   
   m = Model(with_optimizer(Gurobi.Optimizer))
 
@@ -40,18 +43,27 @@ function modelNN(input, w, b, c, g, expOutput, layerSizes)
     ub = [upper_bound(x[k-1,j]) for j in 1:layerSizes[k-1]]
 
     # Use bounds to calculate M_- <= w^{k-1}^T * lb(x^{k-1} + b^{k-1} <= M_+
-    negM = transpose(weights) * lb + biases
+    negM = -(transpose(weights) * lb + biases)
     posM = transpose(weights) * ub + biases
+    negM = [maximum([i,0]) for i in negM]
+    posM = [maximum([i,0]) for i in posM]
+    println("Negative M $negM")
+    println("Positive M $posM")
 
     # Constrain z such that x <= M_+ * (1 - z) and s <= M_- * z
-    @constraint(m, layerX .<= posM .* (1 .- layerZ))
-    @constraint(m, layerS .<= -negM .* layerZ)
+    #@constraint(m, layerX .<= 10000 .* (1 .- layerZ))
+    #@constraint(m, layerS .<= 10000 .* layerZ)
 
     lastLayer = layerX
   end
+  
   # Constrain output to be equal to expected output
   output = [x[numLayers,j] for j in 1:layerSizes[numLayers,]]
-  @constraint(m, output .== expOutput)
+  for k in 1:layerSizes[numLayers]
+    if k != label+1
+      @constraint(m, x[numLayers,label+1] >= x[numLayers,k])
+    end
+  end
 
   # Minimize objective function
   @objective(m, Min, sum(x))
@@ -61,6 +73,9 @@ function modelNN(input, w, b, c, g, expOutput, layerSizes)
   return m,x,s,z,output
 end
 
+"""
+Print decision variable 'val' with name 'name'
+"""
 function printDecLayers(name, val, range, layerSizes)
   println("$name Values: ")
   for k in range
@@ -72,6 +87,9 @@ function printDecLayers(name, val, range, layerSizes)
   end
 end
 
+"""
+Print regular variable 'val' with name 'name'
+"""
 function printLayers(name, val, range, layerSizes)
   println("$name: ")
   for k in range
@@ -86,7 +104,10 @@ function printLayers(name, val, range, layerSizes)
   end
 end
 
-function printVars(m,x,s,z,w,b,c,g,output,layerSizes)
+"""
+Print all variables
+"""
+function printVars(m,x,s,z,w,b,c,g,output,layerSizes,printWeights)
 
   numLayers = size(layerSizes,1)
   
@@ -96,18 +117,24 @@ function printVars(m,x,s,z,w,b,c,g,output,layerSizes)
   printDecLayers("X", x, 1:numLayers, layerSizes)
   printDecLayers("S", s, 2:numLayers, layerSizes)
   printDecLayers("Z", z, 2:numLayers, layerSizes)
-
-  printLayers("Weights", w, 1:numLayers-1, layerSizes)
-  printLayers("Biases", b, 1:numLayers-1, layerSizes)
+  if printWeights
+    printLayers("Weights", w, 1:numLayers-1, layerSizes)
+    printLayers("Biases", b, 1:numLayers-1, layerSizes)
+  end
 
 end
 
+"""
+Load data from json file 'file'
+"""
 function loadData(file)
   f = open(file)
   data = JSON.parse(String(read(f)))
   layers = Int64.(data["layers"])
+  println(layers)
   input = Float64.(data["input"])
-  expOutput = Float64.(data["expectedOutput"])
+  label = data["label"]
+  println("Label: $label")
   numLayers  = size(layers,1)
 
   # Create weight dict, w[k][i,j] is weight i,j in layer k
@@ -134,7 +161,7 @@ function loadData(file)
       end
     end
   end
-  return layers,input, expOutput, w, b
+  return layers,input, label, w, b
 end
 
 function main()
@@ -146,13 +173,13 @@ function main()
   g = [0; 0]
 
   # Load data from file
-  layers,input,expOutput,w,b = loadData(file)
+  layers,input,label,w,b = loadData(file)
 
   println("Now constraining!")
-  t = @elapsed m,x,s,z,output = modelNN(input,w,b,c,g,expOutput,layers)
+  t = @elapsed m,x,s,z,output = modelNN(input,w,b,c,g,label,layers)
   println(" ")
   println("Time: ",t)
-  printVars(m,x,s,z,w,b,c,g,output,layers)
+  printVars(m,x,s,z,w,b,c,g,output,layers, false)
 end
 
 
