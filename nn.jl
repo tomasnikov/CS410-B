@@ -3,13 +3,14 @@ using Gurobi
 using Distributions
 using LinearAlgebra
 using DelimitedFiles
+using Printf
 
 import JSON
 
 """
 Add constraints for neural network, then optimize.
 """
-function modelNN(input, w, b, c, g, label, layerSizes)
+function modelNN(input, w, b, label, layerSizes)
   
   m = Model(with_optimizer(Gurobi.Optimizer))
 
@@ -18,9 +19,12 @@ function modelNN(input, w, b, c, g, label, layerSizes)
   # Initialize x decision variable, x >= 0. x[k,j] is x^k_j. Arbitrary upper bound of 10000
   @variable(m, 0 <= x[k=1:numLayers, j=1:layerSizes[k]] <= 10000)
   # Initialize s decision variable, s >= 0. s[k,j] is s^k_j
-  @variable(m, s[k=2:numLayers, j=1:layerSizes[k]] >= 0)
+  @variable(m, 0 <= s[k=2:numLayers, j=1:layerSizes[k]] <= 10000)
   # Initialize binary z decision variable
   @variable(m, z[k=2:numLayers, j=1:layerSizes[k]], Bin)
+
+  @variable(m, posM[k=2:numLayers, j=1:layerSizes[k]] >= 0)
+  @variable(m, negM[k=2:numLayers, j=1:layerSizes[k]] >= 0)
 
   # First x layer must be equal to the input
   @constraint(m, [x[1,j] for j in 1:layerSizes[1]] .== input)
@@ -31,28 +35,24 @@ function modelNN(input, w, b, c, g, label, layerSizes)
     layerX = [x[k,j] for j in 1:layerSizes[k]]
     layerS = [s[k,j] for j in 1:layerSizes[k]]
     layerZ = [z[k,j] for j in 1:layerSizes[k]]
+    layerPosM = [posM[k,j] for j in 1:layerSizes[k]]
+    layerNegM = [negM[k,j] for j in 1:layerSizes[k]]
 
     weights = w[string(k-1)]
     biases = b[string(k-1)]
 
-    # ReLU formulation, w^{k-1}^T * x^{k-1} + b^{k-1} = x^k - s^k
-    @constraint(m, transpose(weights) * lastLayer + biases .== layerX - layerS)
-    
-    # Get upper and lower bounds for x values
-    lb = [lower_bound(x[k-1,j]) for j in 1:layerSizes[k-1]]
-    ub = [upper_bound(x[k-1,j]) for j in 1:layerSizes[k-1]]
+    left = transpose(weights) * lastLayer + biases
 
-    # Use bounds to calculate M_- <= w^{k-1}^T * lb(x^{k-1} + b^{k-1} <= M_+
-    negM = -(transpose(weights) * lb + biases)
-    posM = transpose(weights) * ub + biases
-    negM = [maximum([i,0]) for i in negM]
-    posM = [maximum([i,0]) for i in posM]
-    println("Negative M $negM")
-    println("Positive M $posM")
+    # ReLU formulation, w^{k-1}^T * x^{k-1} + b^{k-1} = x^k - s^k
+    @constraint(m, left .== layerX .- layerS)
+
+    @constraint(m, left .<= layerPosM)
+    @constraint(m, -layerNegM .<= left)
 
     # Constrain z such that x <= M_+ * (1 - z) and s <= M_- * z
-    #@constraint(m, layerX .<= 10000 .* (1 .- layerZ))
-    #@constraint(m, layerS .<= 10000 .* layerZ)
+    #@constraint(m, layerX .<= layerPosM .* (1 .- layerZ))
+    #@constraint(m, layerS .<= layerNegM .* layerZ)
+    #@constraint(m,layerX .* layerS .== .0)
 
     lastLayer = layerX
   end
@@ -70,7 +70,7 @@ function modelNN(input, w, b, c, g, label, layerSizes)
   #@objective(m, Min, sum(x .* c) + sum(z .* g))
 
   optimize!(m)
-  return m,x,s,z,output
+  return m,x,s,z,posM,negM,output
 end
 
 """
@@ -81,10 +81,11 @@ function printDecLayers(name, val, range, layerSizes)
   for k in range
     println("Layer ", k, ':')
     for j in 1:layerSizes[k]
-      print(JuMP.value(val[k,j]), " ")
+      print("$(@sprintf("%.2f",JuMP.value(val[k,j]))) ")
     end
     println(" ")
   end
+  println("-------------")
 end
 
 """
@@ -102,26 +103,35 @@ function printLayers(name, val, range, layerSizes)
       println(" ")
     end
   end
+  println("-------------")
 end
 
 """
 Print all variables
 """
-function printVars(m,x,s,z,w,b,c,g,output,layerSizes,printWeights)
+function printVars(m,x,s,z,w,b,posM,negM,output,layerSizes,label,printWeights)
 
   numLayers = size(layerSizes,1)
   
   println(" ")
   println("Objective Value: ", JuMP.objective_value(m))
+  println(" ")
 
-  printDecLayers("X", x, 1:numLayers, layerSizes)
+  printDecLayers("X", x, 2:numLayers, layerSizes)
   printDecLayers("S", s, 2:numLayers, layerSizes)
   printDecLayers("Z", z, 2:numLayers, layerSizes)
+  printDecLayers("Positive M", posM, 2:numLayers, layerSizes)
+  printDecLayers("Negative M", negM, 2:numLayers, layerSizes)
   if printWeights
     printLayers("Weights", w, 1:numLayers-1, layerSizes)
     printLayers("Biases", b, 1:numLayers-1, layerSizes)
   end
-
+  println("====================================")
+  maxVal = findmax([JuMP.value(x[numLayers,j]) for j in 1:layerSizes[numLayers]])
+  maxInd = maxVal[2] - 1
+  println("Target label: $label")
+  println("Classification: $maxInd")
+  println(" ")
 end
 
 """
@@ -168,18 +178,14 @@ function main()
   # Read JSON file
   file = ARGS[1]
 
-  # Cost functions ???
-  c = [1; 1]
-  g = [0; 0]
-
   # Load data from file
   layers,input,label,w,b = loadData(file)
 
   println("Now constraining!")
-  t = @elapsed m,x,s,z,output = modelNN(input,w,b,c,g,label,layers)
+  t = @elapsed m,x,s,z,posM,negM,output = modelNN(input,w,b,label,layers)
   println(" ")
   println("Time: ",t)
-  printVars(m,x,s,z,w,b,c,g,output,layers, false)
+  printVars(m,x,s,z,w,b,posM,negM,output,layers,label,false)
 end
 
 
