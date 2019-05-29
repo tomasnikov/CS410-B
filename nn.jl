@@ -185,6 +185,7 @@ function main()
   sameAsNN = 0
   sameAsTrue = 0
   NNequalToTrue = 0
+  numImages = length(files)
   for file in files
     #println(file)
     # Load data from file
@@ -210,9 +211,10 @@ function main()
     end
     
   end
-  println("Number same as NN: $sameAsNN")
-  println("Number same as True: $sameAsTrue")
-  println("Number NN equal to True: $NNequalToTrue")
+  println("Total number of instances: $numImages")
+  println("Number of labels equal to NN prediction: $sameAsNN")
+  println("Number of labels equal to True labels: $sameAsTrue")
+  println("Number of NN predictions equal to True labels: $NNequalToTrue")
   
 end
 
