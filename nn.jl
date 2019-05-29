@@ -11,7 +11,7 @@ import JSON
 """
 Add constraints for neural network, then optimize.
 """
-function modelNN(input, w, b, label, layerSizes)
+function modelNN(input, w, b, label, layerSizes, hardOutput)
   
   m = Model(solver=GurobiSolver())
 
@@ -21,39 +21,35 @@ function modelNN(input, w, b, label, layerSizes)
   @variable(m, 0 <= x[k=1:numLayers, j=1:layerSizes[k]] <= 10000)
   # Initialize s decision variable, s >= 0. s[k,j] is s^k_j
   @variable(m, 0 <= s[k=2:numLayers, j=1:layerSizes[k]] <= 10000)
-  # Initialize binary z decision variable
-  @variable(m, z[k=2:numLayers, j=1:layerSizes[k]], Bin)
 
   # First x layer must be equal to the input
   @constraint(m, [x[1,j] for j in 1:layerSizes[1]] .== input)
 
-  lastLayer = [x[1,j] for j in 1:layerSizes[1]]
   for k in 2:numLayers
     # x_j, s_j and z_j are values for layer k, j in 1:n_k
     layerX = [x[k,j] for j in 1:layerSizes[k]]
     layerS = [s[k,j] for j in 1:layerSizes[k]]
-    layerZ = [z[k,j] for j in 1:layerSizes[k]]
 
     weights = w[string(k-1)]
     biases = b[string(k-1)]
-
-    left = transpose(weights) * lastLayer + biases
+    lastLayer = [x[k-1,j] for j in 1:layerSizes[k-1]]
 
     # ReLU formulation, w^{k-1}^T * x^{k-1} + b^{k-1} = x^k - s^k
-    @constraint(m, left .== layerX .- layerS)
+    @constraint(m, transpose(weights) * lastLayer + biases .== layerX .- layerS)
 
     for j in 1:layerSizes[k]
       @disjunction(m, (x[k,j] == 0), (s[k,j] == 0))
     end
-
-    lastLayer = layerX
   end
-  
-  # Constrain output to be equal to expected output
-  output = [x[numLayers,j] for j in 1:layerSizes[numLayers,]]
-  for k in 1:layerSizes[numLayers]
-    if k != label+1
-      @constraint(m, x[numLayers,label+1] >= x[numLayers,k])
+
+  # Only do the following if output has a hard constraint (i.e. adversarial)
+  if hardOutput
+    # Constrain output to be equal to expected output
+    output = [x[numLayers,j] for j in 1:layerSizes[numLayers,]]
+    for k in 1:layerSizes[numLayers]
+      if k != label+1
+        @constraint(m, x[numLayers,label+1] >= x[numLayers,k])
+      end
     end
   end
 
@@ -62,7 +58,7 @@ function modelNN(input, w, b, label, layerSizes)
   #@objective(m, Min, sum(x .* c) + sum(z .* g))
 
   solve(m)
-  return m,x,s,z,output
+  return m,x,s
 end
 
 """
@@ -90,7 +86,7 @@ function printLayers(name, val, range, layerSizes)
     tmp = val[string(k)]
     for i in 1:size(tmp,1)
       for j in 1:size(tmp,2)
-        print(tmp[i,j], " ")
+        print("$(@sprintf("%.2f",tmp[i,j])) ")
       end
       println(" ")
     end
@@ -98,29 +94,36 @@ function printLayers(name, val, range, layerSizes)
   println("-------------")
 end
 
+function getPredictedLabel(m,x,layerSizes)
+  numLayers = size(layerSizes,1)
+  maxVal = findmax([getvalue(x[numLayers,j]) for j in 1:layerSizes[numLayers]])
+  label = maxVal[2] - 1
+  return label
+end
+
 """
 Print all variables
 """
-function printVars(m,x,s,z,w,b,output,layerSizes,label,printWeights)
+function printVars(m,x,s,w,b,layerSizes,label,predLabel,printWeights)
 
   numLayers = size(layerSizes,1)
   
   println(" ")
   println("Objective Value: ", getobjectivevalue(m))
+  println("Time: ", getsolvetime(m))
   println(" ")
 
   printDecLayers("X", x, 2:numLayers, layerSizes)
   printDecLayers("S", s, 2:numLayers, layerSizes)
-  printDecLayers("Z", z, 2:numLayers, layerSizes)
   if printWeights
     printLayers("Weights", w, 1:numLayers-1, layerSizes)
     printLayers("Biases", b, 1:numLayers-1, layerSizes)
   end
   println("====================================")
-  maxVal = findmax([getvalue(x[numLayers,j]) for j in 1:layerSizes[numLayers]])
-  maxInd = maxVal[2] - 1
-  println("Target label: $label")
-  println("Classification: $maxInd")
+  modelPredLabel = getPredictedLabel(m,x,layerSizes)
+  println("True label: $label")
+  println("NN Predicted Label: $predLabel")
+  println("Model Predicted Label: $modelPredLabel")
   println(" ")
 end
 
@@ -135,6 +138,8 @@ function loadData(file)
   input = Float64.(data["input"])
   label = data["label"]
   println("Label: $label")
+  predLabel = data["predictedLabel"]
+  println("NN Predicted Label: $predLabel")
   numLayers  = size(layers,1)
 
   # Create weight dict, w[k][i,j] is weight i,j in layer k
@@ -161,21 +166,54 @@ function loadData(file)
       end
     end
   end
-  return layers,input, label, w, b
+  return layers, input, label, predLabel, w, b
 end
 
 function main()
   # Read JSON file
-  file = ARGS[1]
+  path = ARGS[1]
+  if occursin(".json", path)
+    files = [path]
+  else
+    files = ["$path$f" for f in readdir(path)]
+  end
+  # Set to true if output label is hard constraint (i.e. adversarial)
+  hardOutput = false
+  # Set to true to see all the weights when printing
+  printWeights = false
 
-  # Load data from file
-  layers,input,label,w,b = loadData(file)
+  sameAsNN = 0
+  sameAsTrue = 0
+  NNequalToTrue = 0
+  for file in files
+    #println(file)
+    # Load data from file
+    layers,input,label,predLabel,w,b = loadData(file)
+    # Normalize input
+    input = input/findmax(input)[1]
 
-  println("Now constraining!")
-  t = @elapsed m,x,s,z,output = modelNN(input,w,b,label,layers)
-  println(" ")
-  println("Time: ",t)
-  printVars(m,x,s,z,w,b,output,layers,label,false)
+    println("Now constraining!")
+    t = @elapsed m,x,s = modelNN(input,w,b,label,layers,hardOutput)
+    println(" ")
+    println("Time: ",t)
+    printVars(m,x,s,w,b,layers,label,predLabel,printWeights)
+    modelPredLabel = getPredictedLabel(m,x,layers)
+
+    if predLabel == modelPredLabel
+      sameAsNN += 1
+    end
+    if label == modelPredLabel
+      sameAsTrue += 1
+    end
+    if label == predLabel
+      NNequalToTrue +=1
+    end
+    
+  end
+  println("Number same as NN: $sameAsNN")
+  println("Number same as True: $sameAsTrue")
+  println("Number NN equal to True: $NNequalToTrue")
+  
 end
 
 
