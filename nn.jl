@@ -61,7 +61,7 @@ function modelNN(input, w, b, label, layerSizes)
   @objective(m, Min, sum(x))
   #@objective(m, Min, sum(x .* c) + sum(z .* g))
 
-  solve(m)
+  print("Solver time: $(@elapsed(solve(m)))"
   return m,x,s,z,output
 end
 
