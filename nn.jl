@@ -205,9 +205,9 @@ function main()
     files = ["$path$f" for f in readdir(path)]
   end
   # Set to true if output label is hard constraint (i.e. adversarial)
-  doAdversarial = true
+  doAdversarial = false
   # Set to true to write adversarial to JSON
-  writeToJSON = true
+  writeToJSON = false
   # Set to true to see all the weights when printing
   printWeights = false
 

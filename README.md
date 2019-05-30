@@ -15,3 +15,20 @@ julia nn.jl datasets/2-2-1.json
 ```
 julia nn.jl datasets/nn1/
 ```
+
+#### To create adversarial examples:
+
+Set doAdversarial = true
+
+##### To also write the output to JSON:
+
+Set writeToJSON = true
+
+#### To visualize adversarial examples:
+
+```
+python img.py datasets/nn1/0-7-7.json
+```
+
+Which will show original input image from that dataset as well as the
+adversarial input from adversarials/nn1/0-7-7.json
