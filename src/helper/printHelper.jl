@@ -1,4 +1,5 @@
 using Printf
+include("../NeuralNet.jl")
 
 """
 Print decision variable 'val' with name 'name'
@@ -8,7 +9,7 @@ function printDecLayers(name, val, range, layerSizes)
   for k in range
     println("Layer ", k, ':')
     for j in 1:layerSizes[k]
-      print("$(@sprintf("%.2f",getvalue(val[k,j]))) ")
+      print("$(@sprintf("%.2f",getvalue(val[k, j]))) ")
     end
     println(" ")
   end
@@ -25,7 +26,7 @@ function printLayers(name, val, range, layerSizes)
     tmp = val[string(k)]
     for i in 1:size(tmp,1)
       for j in 1:size(tmp,2)
-        print("$(@sprintf("%.2f",tmp[i,j])) ")
+        print("$(@sprintf("%.2f",tmp[i, j])) ")
       end
       println(" ")
     end
@@ -34,9 +35,9 @@ function printLayers(name, val, range, layerSizes)
 end
 
 
-function getPredictedLabel(m,x,layerSizes)
+function getPredictedLabel(m, x, layerSizes)
   numLayers = size(layerSizes,1)
-  maxVal = findmax([getvalue(x[numLayers,j]) for j in 1:layerSizes[numLayers]])
+  maxVal = findmax([getvalue(x[numLayers, j]) for j in 1:layerSizes[numLayers]])
   label = maxVal[2] - 1
   return label
 end
@@ -44,24 +45,26 @@ end
 """
 Print all variables
 """
-function printVars(m,x,s,w,b,layerSizes,label,predLabel,printWeights)
+function printVars(nn::NeuralNet, x, s, predLabel, printWeights)
 
-  numLayers = size(layerSizes,1)
+  numLayers = size(nn.layerSizes,1)
 
   println(" ")
-  println("Objective Value: ", getobjectivevalue(m))
-  println("Time: ", getsolvetime(m))
+  println("Objective Value: ", getobjectivevalue(nn.m))
+  println("Time: ", getsolvetime(nn.m))
   println(" ")
 
-  printDecLayers("X", x, 2:numLayers, layerSizes)
-  printDecLayers("S", s, 2:numLayers, layerSizes)
+  sizes = nn.layerSizes
+
+  printDecLayers("X", x, 2:numLayers, sizes)
+  printDecLayers("S", s, 2:numLayers, sizes)
   if printWeights
-    printLayers("Weights", w, 1:numLayers-1, layerSizes)
-    printLayers("Biases", b, 1:numLayers-1, layerSizes)
+    printLayers("Weights", nn.w, 1:numLayers - 1, sizes)
+    printLayers("Biases", nn.b, 1:numLayers - 1, sizes)
   end
   println("====================================")
-  modelPredLabel = getPredictedLabel(m,x,layerSizes)
-  println("True label: $label")
+  modelPredLabel = getPredictedLabel(nn.m,x,sizes)
+  println("True label: $(nn.targetLabel)")
   println("NN Predicted Label: $predLabel")
   println("Model Predicted Label: $modelPredLabel")
   println(" ")
