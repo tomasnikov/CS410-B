@@ -10,6 +10,7 @@ import JSON
 
 include("helper/printHelper.jl")
 include("helper/problemLoader.jl")
+include("helper/modelHelper.jl")
 include("NeuralNet.jl")
 
 """
@@ -32,25 +33,9 @@ function modelNN(nn::NeuralNet, doAdversarial::Bool)
     @constraint(m, [x[1,j] for j in 1:nn.layerSizes[1]] .== nn.input)
   end
 
-  for k in 2:numLayers
-    # x_j and s_j are values for layer k, j in 1:n_k
-    layerX = [x[k,j] for j in 1:nn.layerSizes[k]]
-    layerS = [s[k,j] for j in 1:nn.layerSizes[k]]
 
-    weights = nn.w[string(k-1)]
-    biases = nn.b[string(k-1)]
-    lastLayer = [x[k-1,j] for j in 1:nn.layerSizes[k-1]]
+  add_relu_constraints(nn, numLayers, x, s)
 
-    # ReLU formulation, w^{k-1}^T * x^{k-1} + b^{k-1} = x^k - s^k
-    @constraint(m, transpose(weights) * lastLayer + biases .== layerX .- layerS)
-
-    # Either s or x must be 0
-    for j in 1:nn.layerSizes[k]
-      @disjunction(m, (x[k,j] == 0), (s[k,j] == 0))
-    end
-  end
-
-  # Only do the following if output has a hard constraint (i.e. adversarial)
   if doAdversarial
     # Constrain output to be equal to expected output
     output = [x[numLayers,j] for j in 1:nn.layerSizes[numLayers,]]
@@ -60,9 +45,6 @@ function modelNN(nn::NeuralNet, doAdversarial::Bool)
         @constraint(m, x[numLayers,label+1] >= 1.2*x[numLayers,k])
       end
     end
-  end
-
-  if doAdversarial
     # Minimize distance between original input and adversarial input
     @objective(m, Min, sum(d))
   else
@@ -90,6 +72,7 @@ function addAdversarialConstraints(nn, x)
     @constraint(nn.m, firstLayerD .>= firstLayerX - nn.input)
     return d
 end
+
 
 
 function writeInputToJSON(input, targetLabel, modelPredLabel, filename)
