@@ -8,7 +8,7 @@ In this project ConditionalJuMP is used, which is not compatible with JuMP 0.19.
 
 ```
 add JuMP
-fix JuMP@v0.18.6
+pin JuMP@v0.18.6
 add ConditionalJuMP
 ```
 
@@ -23,7 +23,7 @@ julia nn.jl datasets/nn1/0-7-7.json
 #### To run all files in a directory:
 
 ```
-julia nn.jl datasets/nn1/
+julia src/nn.jl datasets/nn1/
 ```
 
 #### To create adversarial examples:
