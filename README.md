@@ -17,7 +17,7 @@ add ConditionalJuMP
 #### To run a single file:
 
 ```
-julia nn.jl datasets/2-2-1.json
+julia nn.jl datasets/nn1/0-7-7.json
 ```
 
 #### To run all files in a directory:
@@ -28,11 +28,21 @@ julia nn.jl datasets/nn1/
 
 #### To create adversarial examples:
 
-Set doAdversarial = true
+```
+julia nn.jl datasets/nn1/0-7-7.json --adversarial
+```
 
 ##### To also write the output to JSON:
 
-Set writeToJSON = true
+```
+julia nn.jl datasets/nn1/0-7-7.json --adversarial --writeJSON
+```
+
+##### To also write the output to CSV:
+
+```
+julia nn.jl datasets/nn1/ --writeCSV
+```
 
 #### To visualize adversarial examples:
 
