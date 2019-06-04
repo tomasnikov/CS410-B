@@ -4,4 +4,3 @@
 deps/deps.jl
 .ipynb_checkpoints/
 data/
-adversarials/nn1/

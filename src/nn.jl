@@ -93,6 +93,15 @@ function writeInputToJSON(input, targetLabel, modelPredLabel, filename)
   end
 end
 
+function getRunResults(m)
+  value = getobjectivevalue(m)
+  solvetime = getsolvetime(m)
+  bound = getobjectivebound(m)
+  nodes = getnodecount(m)
+  gap = abs(value - bound)/value
+  return value,solvetime,bound,nodes,gap
+end
+
 function main()
   # Read JSON file
   path = ARGS[1]
@@ -102,9 +111,11 @@ function main()
     files = ["$path$f" for f in readdir(path)]
   end
   # Set to true if output label is hard constraint (i.e. adversarial)
-  doAdversarial = false
+  doAdversarial = true
   # Set to true to write adversarial to JSON
   writeToJSON = false
+  # Set to true to write to csv
+  writeToCSV = false
   # Set to true to see all the weights when printing
   printWeights = false
 
@@ -112,7 +123,13 @@ function main()
   sameAsTrue = 0
   NNequalToTrue = 0
   numImages = length(files)
+
+  csvData = zeros((numImages, 8))
+  counter = 0
+
   for file in files
+    println(file)
+    counter += 1
     # Load data from file
     layers,input,label,predLabel,w,b = loadData(file)
     # Normalize input
@@ -142,11 +159,18 @@ function main()
 
     if doAdversarial && writeToJSON
       new_input = [getvalue(x[1,j]) for j in 1:layers[1]]
-      fileName = match(r"/\d.*.json", file).match
-      writeInputToJSON(new_input, targetLabel, modelPredLabel, "adversarials/nn1$fileName")
+      advFileName = replace(file, "datasets" => "adversarials")
+      writeInputToJSON(new_input, targetLabel, modelPredLabel, "adversarials/nn5$fileName")
     end
+
+    value,solvetime,bound,nodes,gap = getRunResults(m)
+    csvData[counter,:] = [label, predLabel, modelPredLabel, value, bound, gap, solvetime, nodes]
     
   end
+  if writeToCSV
+    writedlm("nn5-adfa-adversarial.csv", csvData)
+  end
+
   println("Total number of instances: $numImages")
   println("Number of labels equal to NN prediction: $sameAsNN")
   println("Number of labels equal to True labels: $sameAsTrue")

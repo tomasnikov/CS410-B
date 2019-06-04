@@ -5,6 +5,7 @@
 ### Setup
 In this project ConditionalJuMP is used, which is not compatible with JuMP 0.19.*. It is therefor required to downrade (fix) the JuMP version used to 0.18.6. This can be done through the following steps:
 
+
 ```
 add JuMP
 fix JuMP@v0.18.6
