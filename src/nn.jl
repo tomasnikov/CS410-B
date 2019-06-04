@@ -28,15 +28,7 @@ function modelNN(nn::NeuralNet, doAdversarial::Bool)
 
   if doAdversarial
     d = addAdversarialConstraints(nn, x)
-  else
-    # First x layer must be equal to the input
-    @constraint(m, [x[1,j] for j in 1:nn.layerSizes[1]] .== nn.input)
-  end
 
-
-  add_relu_constraints(nn, numLayers, x, s)
-
-  if doAdversarial
     # Constrain output to be equal to expected output
     output = [x[numLayers,j] for j in 1:nn.layerSizes[numLayers,]]
     label = nn.targetLabel
@@ -48,29 +40,17 @@ function modelNN(nn::NeuralNet, doAdversarial::Bool)
     # Minimize distance between original input and adversarial input
     @objective(m, Min, sum(d))
   else
+    # First x layer must be equal to the input
+    @constraint(m, [x[1,j] for j in 1:nn.layerSizes[1]] .== nn.input)
+
     # Minimize over all x. Since input is fixed, this does not really do anything
     @objective(m, Min, sum(x))
   end
 
+  add_relu_constraints(nn, numLayers, x, s)
+
   print("Solver time: $(@elapsed(solve(m)))")
   return m,x,s
-end
-
-"""
-    Introduce d variable, represents distance between input and adversarial input
-"""
-function addAdversarialConstraints(nn, x)
-    @variable(nn.m, 0 <= d[1,j=1:nn.layerSizes[1]] <= 10000)
-
-    firstLayerX = [x[1,j] for j in 1:nn.layerSizes[1]]
-    firstLayerD = [d[1,j] for j in 1:nn.layerSizes[1]]
-
-    # Input must be in range 0 to 1
-    @constraint(nn.m, firstLayerX .<= .1)
-    # Constrain d to be distance between original input and x input
-    @constraint(nn.m, -firstLayerD .<= firstLayerX - nn.input)
-    @constraint(nn.m, firstLayerD .>= firstLayerX - nn.input)
-    return d
 end
 
 

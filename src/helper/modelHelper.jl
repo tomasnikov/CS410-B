@@ -29,3 +29,20 @@ function add_relu_constraints(nn::NeuralNet, numLayers, x, s)
     end
   end
 end
+
+"""
+    Introduce d variable, represents distance between input and adversarial input
+"""
+function addAdversarialConstraints(nn, x)
+    @variable(nn.m, 0 <= d[1,j=1:nn.layerSizes[1]] <= 10000)
+
+    firstLayerX = [x[1,j] for j in 1:nn.layerSizes[1]]
+    firstLayerD = [d[1,j] for j in 1:nn.layerSizes[1]]
+
+    # Input must be in range 0 to 1
+    @constraint(nn.m, firstLayerX .<= .1)
+    # Constrain d to be distance between original input and x input
+    @constraint(nn.m, -firstLayerD .<= firstLayerX - nn.input)
+    @constraint(nn.m, firstLayerD .>= firstLayerX - nn.input)
+    return d
+end
