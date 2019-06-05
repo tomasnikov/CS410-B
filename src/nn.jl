@@ -7,15 +7,6 @@ include("helper/modelHelper.jl")
 include("NeuralNet.jl")
 
 
-function getRunResults(m)
-  value = getobjectivevalue(m)
-  solvetime = getsolvetime(m)
-  bound = getobjectivebound(m)
-  nodes = getnodecount(m)
-  gap = abs(value - bound)/value
-  return value,solvetime,bound,nodes,gap
-end
-
 function main()
   files, doAdversarial, writeToJSON, writeToCSV, printWeights = processArgs(ARGS)
   sameAsNN = sameAsTrue = NNequalToTrue = false
