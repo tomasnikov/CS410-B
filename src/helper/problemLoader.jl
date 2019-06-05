@@ -49,3 +49,38 @@ function loadData(file)
   end
   return layers, input, label, predLabel, w, b
 end
+
+
+"""
+ Based on the command line arguments (ARGS) determine what actions are required and which file(s) to read
+"""
+function processArgs(args)
+     # Set to true if output label is hard constraint (i.e. adversarial)
+  doAdversarial = false
+  # Set to true to write adversarial to JSON
+  writeToJSON = false
+  # Set to true to see all the weights when printing
+  printWeights = false
+  # Set to true to write to csv
+  writeToCSV = false
+
+  if "--adversarial" in args
+    doAdversarial = true
+  end
+  if "--writeJSON" in args
+    writeToJSON = true
+  end
+  if "--writeCSV" in args
+    writeToCSV = true
+  end
+
+  # Read JSON file
+  path = ARGS[1]
+  if occursin(".json", path)
+    files = [path]
+  else
+    files = ["$path$f" for f in readdir(path)]
+  end
+
+  return files, doAdversarial, writeToJSON, writeToCSV, printWeights
+end

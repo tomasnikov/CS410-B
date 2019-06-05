@@ -51,7 +51,7 @@ function printVars(nn::NeuralNet, x, s, predLabel, printWeights)
 
   println(" ")
   println("Objective Value: ", getobjectivevalue(nn.m))
-  println("Time: ", getsolvetime(nn.m))
+  println("Solve Time: ", getsolvetime(nn.m))
   println(" ")
 
   sizes = nn.layerSizes
@@ -68,4 +68,27 @@ function printVars(nn::NeuralNet, x, s, predLabel, printWeights)
   println("NN Predicted Label: $predLabel")
   println("Model Predicted Label: $modelPredLabel")
   println(" ")
+end
+
+function printResults(numImages::Int64, sameAsNN, sameAsTrue, nnSameAsTrue)
+  println("Total number of instances: $numImages")
+  println("Number of model prediction equal to NN prediction: $sameAsNN")
+  println("Number of model prediction equal to True labels: $sameAsTrue")
+  println("Number of NN prediction equal to True labels: $nnSameAsTrue")
+end
+
+function classificationCheck(predLabel, modelPredLabel, trueLabel)
+    return predLabel == modelPredLabel, trueLabel == modelPredLabel, trueLabel == predLabel
+end
+
+
+"""
+    Write input to file
+"""
+function writeInputToJSON(input, targetLabel, modelPredLabel, filename)
+  data = Dict("input" => input, "label" => targetLabel, "predictedLabel" => modelPredLabel)
+  json_data = JSON.json(data)
+  open(filename, "w") do f
+    write(f, json_data)
+  end
 end

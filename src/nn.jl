@@ -1,67 +1,11 @@
 using JuMP
 using Gurobi
-using Distributions
-using LinearAlgebra
-using DelimitedFiles
-using Printf
-using ConditionalJuMP
-
-import JSON
 
 include("helper/printHelper.jl")
 include("helper/problemLoader.jl")
 include("helper/modelHelper.jl")
 include("NeuralNet.jl")
 
-"""
-Add constraints for neural network, then optimize.
-"""
-function modelNN(nn::NeuralNet, doAdversarial::Bool)
-
-  m = nn.m
-  numLayers = size(nn.layerSizes,1)
-
-  # Initialize x decision variable, x >= 0. x[k,j] is x^k_j. Arbitrary upper bound of 10000
-  @variable(m, 0 <= x[k=1:numLayers, j=1:nn.layerSizes[k]] <= 10000)
-  # Initialize s decision variable, s >= 0. s[k,j] is s^k_j
-  @variable(m, 0 <= s[k=2:numLayers, j=1:nn.layerSizes[k]] <= 10000)
-
-  if doAdversarial
-    d = addAdversarialConstraints(nn, x)
-
-    # Constrain output to be equal to expected output
-    output = [x[numLayers,j] for j in 1:nn.layerSizes[numLayers,]]
-    label = nn.targetLabel
-    for k in 1:nn.layerSizes[numLayers]
-      if k != label+1
-        @constraint(m, x[numLayers,label+1] >= 1.2*x[numLayers,k])
-      end
-    end
-    # Minimize distance between original input and adversarial input
-    @objective(m, Min, sum(d))
-  else
-    # First x layer must be equal to the input
-    @constraint(m, [x[1,j] for j in 1:nn.layerSizes[1]] .== nn.input)
-
-    # Minimize over all x. Since input is fixed, this does not really do anything
-    @objective(m, Min, sum(x))
-  end
-
-  add_relu_constraints(nn, numLayers, x, s)
-
-  print("Solver time: $(@elapsed(solve(m)))")
-  return m,x,s
-end
-
-
-
-function writeInputToJSON(input, targetLabel, modelPredLabel, filename)
-  data = Dict("input" => input, "label" => targetLabel, "predictedLabel" => modelPredLabel)
-  json_data = JSON.json(data)
-  open(filename, "w") do f
-    write(f, json_data)
-  end
-end
 
 function getRunResults(m)
   value = getobjectivevalue(m)
@@ -73,34 +17,9 @@ function getRunResults(m)
 end
 
 function main()
-  # Read JSON file
-  path = ARGS[1]
-  if occursin(".json", path)
-    files = [path]
-  else
-    files = ["$path$f" for f in readdir(path)]
-  end
-  # Set to true if output label is hard constraint (i.e. adversarial)
-  doAdversarial = false
-  # Set to true to write adversarial to JSON
-  writeToJSON = false
-  # Set to true to write to csv
-  writeToCSV = false
-  # Set to true to see all the weights when printing
-  printWeights = false
-  if "--adversarial" in ARGS
-    doAdversarial = true
-  end
-  if "--writeJSON" in ARGS
-    writeToJSON = true
-  end
-  if "--writeCSV" in ARGS
-    writeToCSV = true
-  end
+  files, doAdversarial, writeToJSON, writeToCSV, printWeights = processArgs(ARGS)
+  sameAsNN = sameAsTrue = NNequalToTrue = false
 
-  sameAsNN = 0
-  sameAsTrue = 0
-  NNequalToTrue = 0
   numImages = length(files)
 
   csvData = zeros((numImages, 8))
@@ -120,24 +39,18 @@ function main()
     end
 
     println("Now constraining!")
-    m = Model(solver=GurobiSolver())
 
-    nn = NeuralNet(m, input, w, b, layers, targetLabel)
-    t = @elapsed m,x,s = modelNN(nn, doAdversarial)
-    println(" ")
-    println("Time: ",t)
+    # Initialize model and NeuralNet
+    m = Model(solver=GurobiSolver())
+    nn::NN = NN(m, input, w, b, layers, targetLabel)
+
+    # build and solve the model
+    t = @elapsed m,x,s = nn(doAdversarial)
+    println("\n\nTotal runtime: ",t)
     printVars(nn, x,s,predLabel,printWeights)
     modelPredLabel = getPredictedLabel(m,x,layers)
 
-    if predLabel == modelPredLabel
-      sameAsNN += 1
-    end
-    if label == modelPredLabel
-      sameAsTrue += 1
-    end
-    if label == predLabel
-      NNequalToTrue +=1
-    end
+    sameAsNN, sameAsTrue, NNequalToTrue = classificationCheck(predLabel, modelPredLabel, label)
 
     if doAdversarial && writeToJSON
       new_input = [getvalue(x[1,j]) for j in 1:layers[1]]
@@ -156,12 +69,7 @@ function main()
     writedlm("$csvFileName-adversarial.csv", csvData)
   end
 
-  println("Total number of instances: $numImages")
-  println("Number of labels equal to NN prediction: $sameAsNN")
-  println("Number of labels equal to True labels: $sameAsTrue")
-  println("Number of NN predictions equal to True labels: $NNequalToTrue")
-  
+  printResults(numImages,sameAsNN, sameAsTrue, NNequalToTrue)
 end
-
 
 main()
