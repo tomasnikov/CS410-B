@@ -62,11 +62,9 @@ function main()
     csvData[counter,:] = [label, predLabel, modelPredLabel, value, bound, gap, solvetime, nodes]
     
   end
+
   if writeToCSV
-    csvFileName = replace(path, "datasets/" => "")
-    csvFileName = replace(csvFileName, ".json" => "")
-    csvFileName = replace(csvFileName, "/" => "")
-    writedlm("$csvFileName-adversarial.csv", csvData)
+    writeResultToCSV(ARGS[1])
   end
 
   printResults(numImages,sameAsNN, sameAsTrue, NNequalToTrue)

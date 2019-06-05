@@ -92,3 +92,13 @@ function writeInputToJSON(input, targetLabel, modelPredLabel, filename)
     write(f, json_data)
   end
 end
+
+"""
+    Write to csv
+"""
+function writeResultToCSV(path)
+    csvFileName = replace(path, "datasets/" => "")
+    csvFileName = replace(csvFileName, ".json" => "")
+    csvFileName = replace(csvFileName, "/" => "")
+    writedlm("$csvFileName-adversarial.csv", csvData)
+end
