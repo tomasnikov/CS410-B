@@ -73,6 +73,9 @@ function processArgs(args)
   if "--writeCSV" in args
     writeToCSV = true
   end
+  if "--printWeights" in args
+    printWeights = true
+  end
 
   # Read JSON file
   path = ARGS[1]
