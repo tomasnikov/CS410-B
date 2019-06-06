@@ -50,6 +50,63 @@ function loadData(file)
   return layers, input, label, predLabel, w, b
 end
 
+"""
+Load CNN data from json file 'file
+"""
+function loadCNNData(file)
+  f = open(file)
+  data = JSON.parse(String(read(f)))
+  layers = Int64.(data["layers"])
+  channels = Int64.(data["channels"])
+  println(layers)
+  input = Float64.(data["input"])
+  label = data["label"]
+  println("Label: $label")
+  predLabel = data["predictedLabel"]
+  println("NN Predicted Label: $predLabel")
+  numLayers  = size(layers,1)
+
+  numConvLayers = length(keys(data["weights"]["conv"]))
+  numFcLayers = length(keys(data["weights"]["fc"]))
+
+  convW = Dict(string(k) => Dict(string(c) => zeros(3,3) for c in 1:size(data["weights"]["conv"][string(k)],1)) for k in 1:numConvLayers)
+  fcW = Dict(string(k) => zeros(layers[k+2],layers[k+3]) for k in 1:numFcLayers)
+
+  convB = Dict(string(k) => zeros(3,1) for k in 1:numConvLayers)
+  fcB = Dict(string(k) => zeros(layers[k+3],1) for k in 1:numFcLayers)
+  
+  for k in 1:numConvLayers
+    convWeights = data["weights"]["conv"][string(k)]
+    convBiases = data["biases"]["conv"][string(k)]
+    for c in 1:size(convWeights,1)
+      channelConvWeights = convWeights[c]
+      convB[string(k)][c,1] = convBiases[c]
+      for (i,row) in enumerate(channelConvWeights)
+        for (j,val) in enumerate(row)
+          convW[string(k)][string(c)][i,j] = val
+        end
+      end
+    end
+  end
+
+  for k in 1:numFcLayers
+    fcWeights = data["weights"]["fc"][string(k)]
+    for (i,row) in enumerate(fcWeights)
+      for (j,val) in enumerate(row)
+        fcW[string(k)][i,j] = val
+      end
+    end
+    fcBiases = data["biases"]["fc"][string(k)]
+    for (i,row) in enumerate(fcBiases)
+      for (j,val) in enumerate(row)
+        fcB[string(k)][i,j] = val
+      end
+    end
+  end
+
+  return layers, input, label, predLabel, convW, fcW, convB, fcB, channels
+end
+
 
 """
  Based on the command line arguments (ARGS) determine what actions are required and which file(s) to read
