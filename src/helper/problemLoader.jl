@@ -58,24 +58,30 @@ function loadCNNData(file)
   data = JSON.parse(String(read(f)))
   layers = Int64.(data["layers"])
   channels = [1,3,3,1,1]
-  println(layers)
+  padding = 1
+  if occursin("convcnn2", file)
+    channels = [1, 6, 6, 16, 16, 1, 1] # Not sure about this
+  end
   input = Float64.(data["input"])
+  # Original input is flat (1,784) so must reshape and transpose
+  input = transpose(reshape(input, (28,28)))
+
   label = data["label"]
-  println("Label: $label")
   predLabel = data["predictedLabel"]
-  println("NN Predicted Label: $predLabel")
-  numLayers  = size(layers,1)
 
-  numConvLayers = length(keys(data["weights"]["conv"]))
-  numFcLayers = length(keys(data["weights"]["fc"]))
+  numConv = length(keys(data["weights"]["conv"]))
+  numFc = length(keys(data["weights"]["fc"]))
 
-  convW = Dict(string(k) => Dict(string(c) => zeros(3,3) for c in 1:size(data["weights"]["conv"][string(k)],1)) for k in 1:numConvLayers)
-  fcW = Dict(string(k) => zeros(layers[k+2],layers[k+3]) for k in 1:numFcLayers)
+  # Creates conv weights/biases i.e. {"1": {"1": [[w11, w12, w13],[w21,w22,w23],[w31,w32,w33]]}} etc.
+  convW = Dict(string(k) => Dict(string(c) => zeros(3,3) for c in 1:size(data["weights"]["conv"][string(k)],1)) for k in 1:numConv)
+  convB = Dict(string(k) => zeros(3,1) for k in 1:numConv)
 
-  convB = Dict(string(k) => zeros(3,1) for k in 1:numConvLayers)
-  fcB = Dict(string(k) => zeros(layers[k+3],1) for k in 1:numFcLayers)
+  # Create fc weights/biases consistent with current layer, i.e. {"3": ...}.
+  # The +1 is for the offset of pooling
+  w = Dict(string(numConv+k+1) => zeros(layers[k+2],layers[k+3]) for k in 1:numFc)
+  b = Dict(string(numConv+k+1) => zeros(layers[k+3],1) for k in 1:numFc)
   
-  for k in 1:numConvLayers
+  for k in 1:numConv
     convWeights = data["weights"]["conv"][string(k)]
     convBiases = data["biases"]["conv"][string(k)]
     for c in 1:size(convWeights,1)
@@ -89,22 +95,30 @@ function loadCNNData(file)
     end
   end
 
-  for k in 1:numFcLayers
+  for k in 1:numFc
     fcWeights = data["weights"]["fc"][string(k)]
     for (i,row) in enumerate(fcWeights)
       for (j,val) in enumerate(row)
-        fcW[string(k)][i,j] = val
+        w[string(numConv+k+1)][i,j] = val
       end
     end
     fcBiases = data["biases"]["fc"][string(k)]
     for (i,row) in enumerate(fcBiases)
       for (j,val) in enumerate(row)
-        fcB[string(k)][i,j] = val
+        b[string(numConv+k+1)][i,j] = val
       end
     end
   end
 
-  return layers, input, label, predLabel, convW, fcW, convB, fcB, channels
+  # Add for input and multiply for pooling layers
+  numConv = numConv*2 + 1
+
+  layers = layers ./ channels
+  layers[1:numConv] = [Int(sqrt(c)) for c in layers[1:numConv]]
+  layers[1] += 2*padding
+  layers = Int.(layers)
+
+  return layers, input, label, predLabel, convW, w, convB, b, channels, numConv
 end
 
 

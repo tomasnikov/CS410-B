@@ -14,7 +14,7 @@ function main()
   numImages = length(files)
   for file in files
     # Load data from file
-    layers,input,label,predLabel,convW,fcW,convB,fcB,channels = loadCNNData(file)
+    layers,input,label,predLabel,convW,w,convB,b,channels,numConv = loadCNNData(file)
     # Normalize input
     input = input/findmax(input)[1]
 
@@ -27,41 +27,24 @@ function main()
 
     # Initialize model and NeuralNet
     m = Model(solver=GurobiSolver())
-    cnn::CNN = CNN(m, input, convW, fcW, convB, fcB, layers, targetLabel, channels)
+    cnn::CNN = CNN(m, input, convW, w, convB, b, layers, targetLabel, channels,numConv)
 
     # build and solve the model
-    t = @elapsed m,convX,fcX,s = cnn(doAdversarial)
+    t = @elapsed m,convX,fcX,convS,fcS = cnn(doAdversarial)
     println("\n\nTotal runtime: ",t)
-    println("x Values: ")
-    totalSum = 0
-    for k in 1:3
-      println("Layer ", k, ':')
-      padding = 0
-      if k == 1
-        padding = 2
-      end
-      for c in 1:channels[k]
-        for i in 1:Int(sqrt(layers[k]/channels[k]))+padding
-          for j in 1:Int(sqrt(layers[k]/channels[k]))+padding
-            print("$(@sprintf("%.2f",getvalue(convX[k,c,i,j]))) ")
-            totalSum += getvalue(convX[k,c,i,j])
-          end
-          println(" ")
-        end
-        println(" ")
-      end
+
+    # Change me if you want a huge console log!
+    if false
+      printConvDecLayers(cnn, "ConvX", convX)
     end
-    #layer3X = reshape([getvalue(convX[3,c,i,j]) for j=1:14,i=1:14,c=1:channels[3]], (588,1))
 
     println("-------------")
     numLayers = size(cnn.layerSizes,1)
 
-    printDecLayers("fcX", fcX, 4:numLayers, layers)
-    printDecLayers("s", s, 4:numLayers, layers)
-    #printVars(cnn, x,s,predLabel,printWeights)
-    #modelPredLabel = getPredictedLabel(m,x,layers)
+    printVars(cnn,fcX,fcS,predLabel,printWeights,numConv+1:numLayers)
+    modelPredLabel = getPredictedLabel(m,fcX,layers)
 
-    #sameAsCNN, sameAsTrue, CNNequalToTrue = classificationCheck(predLabel, modelPredLabel, label)
+    sameAsCNN, sameAsTrue, CNNequalToTrue = classificationCheck(predLabel, modelPredLabel, label)
 
     if doAdversarial && writeToJSON
       new_input = [getvalue(x[1,j]) for j in 1:layers[1]]
