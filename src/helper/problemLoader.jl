@@ -57,7 +57,7 @@ function loadCNNData(file)
   f = open(file)
   data = JSON.parse(String(read(f)))
   layers = Int64.(data["layers"])
-  channels = Int64.(data["channels"])
+  channels = [1,3,3,1,1]
   println(layers)
   input = Float64.(data["input"])
   label = data["label"]

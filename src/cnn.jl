@@ -30,7 +30,7 @@ function main()
     cnn::CNN = CNN(m, input, convW, fcW, convB, fcB, layers, targetLabel, channels)
 
     # build and solve the model
-    t = @elapsed m,convX,fcX = cnn(doAdversarial)
+    t = @elapsed m,convX,fcX,s = cnn(doAdversarial)
     println("\n\nTotal runtime: ",t)
     println("x Values: ")
     totalSum = 0
@@ -51,11 +51,13 @@ function main()
         println(" ")
       end
     end
+    #layer3X = reshape([getvalue(convX[3,c,i,j]) for j=1:14,i=1:14,c=1:channels[3]], (588,1))
+
     println("-------------")
     numLayers = size(cnn.layerSizes,1)
 
     printDecLayers("fcX", fcX, 4:numLayers, layers)
-    println(totalSum)
+    printDecLayers("s", s, 4:numLayers, layers)
     #printVars(cnn, x,s,predLabel,printWeights)
     #modelPredLabel = getPredictedLabel(m,x,layers)
 
