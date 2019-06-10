@@ -61,7 +61,7 @@ end
 """
 Print all variables
 """
-function printVars(nn::NeuralNet, x, s, predLabel, printWeights,xRange=2:5,wRange=1:4)
+function printVars(nn::NeuralNet, x, s, predLabel, label, printWeights, xRange=2:5, wRange=1:4)
 
   println(" ")
   println("Objective Value: ", getobjectivevalue(nn.m))
@@ -78,7 +78,7 @@ function printVars(nn::NeuralNet, x, s, predLabel, printWeights,xRange=2:5,wRang
   end
   println("====================================")
   modelPredLabel = getPredictedLabel(nn.m,x,sizes)
-  println("True label: $(nn.targetLabel)")
+  println("True label: $(label)")
   println("NN Predicted Label: $predLabel")
   println("Model Predicted Label: $modelPredLabel")
   println(" ")

@@ -39,7 +39,7 @@ function main()
     # build and solve the model
     t = @elapsed m,x,s = nn(doAdversarial)
     println("\n\nTotal runtime: ",t)
-    printVars(nn, x,s,predLabel,printWeights,2:numLayers,1:numLayers-1)
+    printVars(nn, x, s, predLabel, label, printWeights, 2:numLayers, 1:numLayers-1)
     modelPredLabel = getPredictedLabel(m,x,layers)
 
     sameAsNN, sameAsTrue, NNequalToTrue = classificationCheck(predLabel, modelPredLabel, label)

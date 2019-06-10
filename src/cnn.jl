@@ -34,14 +34,14 @@ function main()
     println("\n\nTotal runtime: ",t)
 
     # Change me if you want a huge console log!
-    if false
+    if true
       printConvDecLayers(cnn, "ConvX", convX)
     end
 
     println("-------------")
     numLayers = size(cnn.layerSizes,1)
 
-    printVars(cnn,fcX,fcS,predLabel,printWeights,numConv+1:numLayers)
+    printVars(cnn, fcX, fcS, predLabel, label, printWeights, numConv+1:numLayers)
     modelPredLabel = getPredictedLabel(m,fcX,layers)
 
     sameAsCNN, sameAsTrue, CNNequalToTrue = classificationCheck(predLabel, modelPredLabel, label)

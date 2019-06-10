@@ -34,18 +34,23 @@ end
 """
     Introduce d variable, represents distance between input and adversarial input
 """
-function addAdversarialConstraints(nn, x)
-    @variable(nn.m, 0 <= d[1,j=1:nn.layerSizes[1]] <= 10000)
-
-    firstLayerX = [x[1,j] for j in 1:nn.layerSizes[1]]
-    firstLayerD = [d[1,j] for j in 1:nn.layerSizes[1]]
+function addAdversarialConstraints(nn, x, firstLayerX, firstLayerD)
+    numLayers = size(nn.layerSizes,1)
 
     # Input must be in range 0 to 1
     @constraint(nn.m, firstLayerX .<= .1)
     # Constrain d to be distance between original input and x input
     @constraint(nn.m, -firstLayerD .<= firstLayerX - nn.input)
     @constraint(nn.m, firstLayerD .>= firstLayerX - nn.input)
-    return d
+
+    # Constrain output to be equal to expected output
+    output = [x[numLayers, j] for j in 1:nn.layerSizes[numLayers, ]]
+    label = nn.targetLabel
+    for k in 1:nn.layerSizes[numLayers]
+      if k != label+1
+        @constraint(nn.m, x[numLayers,label+1] >= 1.2*x[numLayers,k])
+      end
+    end
 end
 
 """
