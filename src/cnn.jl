@@ -26,7 +26,7 @@ function main()
     println("Now constraining!")
 
     # Initialize model and NeuralNet
-    m = Model(solver=GurobiSolver())
+    m = Model(solver=GurobiSolver(TimeLimit = 300))
     cnn::CNN = CNN(m, input, convW, w, convB, b, layers, targetLabel, channels,numConv)
 
     # build and solve the model
