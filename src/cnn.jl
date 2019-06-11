@@ -8,7 +8,7 @@ include("NeuralNet.jl")
 
 
 function main()
-  files, doAdversarial, writeToJSON, printWeights = processArgs(ARGS)
+  files, doAdversarial, writeToJSON, writeToCSV, printWeights = processArgs(ARGS)
   sameAsCNN = sameAsTrue = CNNequalToTrue = false
 
   numImages = length(files)
@@ -34,7 +34,7 @@ function main()
     println("\n\nTotal runtime: ",t)
 
     # Change me if you want a huge console log!
-    if true
+    if false
       printConvDecLayers(cnn, "ConvX", convX)
     end
 
@@ -55,6 +55,11 @@ function main()
     end
     
   end
+
+  if writeToCSV
+    writeResultToCSV(ARGS[1])
+  end
+
   printResults(numImages,sameAsCNN, sameAsTrue, CNNequalToTrue)
 end
 
