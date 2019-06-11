@@ -16,6 +16,7 @@ function main()
   counter = 0
 
   for file in files
+      counter += 1
     # Load data from file
     layers,input,label,predLabel,convW,w,convB,b,channels,numConv = loadCNNData(file)
     # Normalize input
