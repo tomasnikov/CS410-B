@@ -47,9 +47,11 @@ function main()
     sameAsCNN, sameAsTrue, CNNequalToTrue = classificationCheck(predLabel, modelPredLabel, label)
 
     if doAdversarial && writeToJSON
-      new_input = [getvalue(x[1,j]) for j in 1:layers[1]]
+      new_input = [getvalue(convX[1,1,i,j]) for i = 2:layers[1]-1, j = 2:layers[1]-1]
+      # Have to transpose for some reason
+      new_input = transpose(new_input)
       fileName = match(r"/\d.*.json", file).match
-      writeInputToJSON(new_input, cnn.targetLabel, modelPredLabel, "adversarials/cnn1$fileName")
+      writeInputToJSON(new_input, cnn.targetLabel, modelPredLabel, "adversarials/convnn1$fileName")
     end
     
   end
