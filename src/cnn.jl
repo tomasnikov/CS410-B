@@ -12,6 +12,9 @@ function main()
   sameAsCNN = sameAsTrue = CNNequalToTrue = false
 
   numImages = length(files)
+  csvData = zeros((numImages, 8))
+  counter = 0
+
   for file in files
     # Load data from file
     layers,input,label,predLabel,convW,w,convB,b,channels,numConv = loadCNNData(file)
@@ -26,7 +29,7 @@ function main()
     println("Now constraining!")
 
     # Initialize model and NeuralNet
-    m = Model(solver=GurobiSolver(TimeLimit = 300))
+    m = Model(solver=GurobiSolver(TimeLimit = 60))
     cnn::CNN = CNN(m, input, convW, w, convB, b, layers, targetLabel, channels,numConv)
 
     # build and solve the model
@@ -53,11 +56,14 @@ function main()
       fileName = match(r"/\d.*.json", file).match
       writeInputToJSON(new_input, cnn.targetLabel, modelPredLabel, "adversarials/convnn1$fileName")
     end
-    
+
+    value,solvetime,bound,nodes,gap = getRunResults(m)
+    csvData[counter,:] = [label, predLabel, modelPredLabel, value, bound, gap, solvetime, nodes]
+
   end
 
   if writeToCSV
-    writeResultToCSV(ARGS[1])
+    writeResultToCSV(ARGS[1], csvData)
   end
 
   printResults(numImages,sameAsCNN, sameAsTrue, CNNequalToTrue)
