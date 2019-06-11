@@ -56,7 +56,7 @@ function main()
   end
 
   if writeToCSV
-    writeResultToCSV(ARGS[1])
+    writeResultToCSV(ARGS[1], csvData)
   end
 
   printResults(numImages,sameAsNN, sameAsTrue, NNequalToTrue)

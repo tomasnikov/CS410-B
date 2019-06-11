@@ -38,7 +38,7 @@ function addAdversarialConstraints(nn, x, firstLayerX, firstLayerD)
     numLayers = size(nn.layerSizes,1)
 
     # Input must be in range 0 to 1
-    @constraint(nn.m, firstLayerX .<= .1)
+    @constraint(nn.m, firstLayerX .<= 1)
     # Constrain d to be distance between original input and x input
     @constraint(nn.m, -firstLayerD .<= firstLayerX - nn.input)
     @constraint(nn.m, firstLayerD .>= firstLayerX - nn.input)

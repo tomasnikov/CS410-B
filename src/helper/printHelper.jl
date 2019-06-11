@@ -1,4 +1,5 @@
 using Printf
+using DelimitedFiles
 include("../NeuralNet.jl")
 
 """
@@ -110,7 +111,7 @@ end
 """
     Write to csv
 """
-function writeResultToCSV(path)
+function writeResultToCSV(path, csvData)
     csvFileName = replace(path, "datasets/" => "")
     csvFileName = replace(csvFileName, ".json" => "")
     csvFileName = replace(csvFileName, "/" => "")
