@@ -34,6 +34,22 @@ function printLayers(name, val, range, layerSizes)
   println("-------------")
 end
 
+function printConvDecLayers(cnn, name, val)
+  println("$name: ")
+  for k in 1:cnn.numConv
+    println("Layer ", k, ':')
+    for c in 1:cnn.channels[k]
+      for i in 1:cnn.layerSizes[k]
+        for j in 1:cnn.layerSizes[k]
+          print("$(@sprintf("%.2f",getvalue(val[k,c,i,j]))) ")
+        end
+        println(" ")
+      end
+      println(" ")
+    end
+  end
+end
+
 
 function getPredictedLabel(m, x, layerSizes)
   numLayers = size(layerSizes,1)
@@ -45,9 +61,7 @@ end
 """
 Print all variables
 """
-function printVars(nn::NeuralNet, x, s, predLabel, printWeights)
-
-  numLayers = size(nn.layerSizes,1)
+function printVars(nn::NeuralNet, x, s, predLabel, label, printWeights, xRange=2:5, wRange=1:4)
 
   println(" ")
   println("Objective Value: ", getobjectivevalue(nn.m))
@@ -56,15 +70,15 @@ function printVars(nn::NeuralNet, x, s, predLabel, printWeights)
 
   sizes = nn.layerSizes
 
-  printDecLayers("X", x, 2:numLayers, sizes)
-  printDecLayers("S", s, 2:numLayers, sizes)
+  printDecLayers("X", x, xRange, sizes)
+  printDecLayers("S", s, xRange, sizes)
   if printWeights
-    printLayers("Weights", nn.w, 1:numLayers - 1, sizes)
-    printLayers("Biases", nn.b, 1:numLayers - 1, sizes)
+    printLayers("Weights", nn.w, wRange, sizes)
+    printLayers("Biases", nn.b, wRange, sizes)
   end
   println("====================================")
   modelPredLabel = getPredictedLabel(nn.m,x,sizes)
-  println("True label: $(nn.targetLabel)")
+  println("True label: $(label)")
   println("NN Predicted Label: $predLabel")
   println("Model Predicted Label: $modelPredLabel")
   println(" ")

@@ -21,6 +21,7 @@ function main()
     counter += 1
     # Load data from file
     layers,input,label,predLabel,w,b = loadData(file)
+    numLayers = size(layers,1)
     # Normalize input
     input = input/findmax(input)[1]
 
@@ -38,7 +39,7 @@ function main()
     # build and solve the model
     t = @elapsed m,x,s = nn(doAdversarial)
     println("\n\nTotal runtime: ",t)
-    printVars(nn, x,s,predLabel,printWeights)
+    printVars(nn, x, s, predLabel, label, printWeights, 2:numLayers, 1:numLayers-1)
     modelPredLabel = getPredictedLabel(m,x,layers)
 
     sameAsNN, sameAsTrue, NNequalToTrue = classificationCheck(predLabel, modelPredLabel, label)
