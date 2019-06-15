@@ -115,5 +115,5 @@ function writeResultToCSV(path, csvData)
     csvFileName = replace(path, "datasets/" => "")
     csvFileName = replace(csvFileName, ".json" => "")
     csvFileName = replace(csvFileName, "/" => "")
-    writedlm("$csvFileName-adversarial.csv", csvData)
+    writedlm("$csvFileName-adversarial-mipfocus=2.csv", csvData)
 end

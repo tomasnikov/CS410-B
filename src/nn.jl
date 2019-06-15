@@ -33,7 +33,7 @@ function main()
     println("Now constraining!")
 
     # Initialize model and NeuralNet
-    m = Model(solver=GurobiSolver())
+    m = Model(solver=GurobiSolver(TimeLimit = 300, MIPFocus=2))
     nn::NN = NN(m, input, w, b, layers, targetLabel)
 
     # build and solve the model
