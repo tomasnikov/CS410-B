@@ -57,11 +57,8 @@ function loadCNNData(file)
   f = open(file)
   data = JSON.parse(String(read(f)))
   layers = Int64.(data["layers"])
-  channels = [1,3,3,1,1]
+  channels = Int64.(data["channels"])
   padding = 1
-  if occursin("convcnn2", file)
-    channels = [1, 6, 6, 16, 16, 1, 1] # Not sure about this
-  end
   input = Float64.(data["input"])
   # Original input is flat (1,784) so must reshape and transpose
   input = transpose(reshape(input, (28,28)))
@@ -74,7 +71,7 @@ function loadCNNData(file)
 
   # Creates conv weights/biases i.e. {"1": {"1": [[w11, w12, w13],[w21,w22,w23],[w31,w32,w33]]}} etc.
   convW = Dict(string(k) => Dict(string(c) => zeros(3,3) for c in 1:size(data["weights"]["conv"][string(k)],1)) for k in 1:numConv)
-  convB = Dict(string(k) => zeros(3,1) for k in 1:numConv)
+  convB = Dict(string(k) => zeros(channels[k+1],1) for k in 1:numConv)
 
   # Create fc weights/biases consistent with current layer, i.e. {"3": ...}.
   # The +1 is for the offset of pooling
