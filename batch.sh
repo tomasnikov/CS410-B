@@ -10,6 +10,9 @@ echo "TArget Folder: $TARGET_FOLDER"
 
 FILES="$BASE_PATH/$SOURCE_FOLDER/*"
 
+cd "$BASE_PATH/$TARGET_FOLDER"
+for i in {0..19}; do mkdir -p $i; done;
+
 count=0
 batch=0
 for f in $FILES; do
